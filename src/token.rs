@@ -1,13 +1,26 @@
 use crate::naive_grammer::{Prefix, Suffix, Word};
 
-#[derive(Debug)]
-pub enum Token {
+#[derive(Debug, Clone)]
+pub enum Symbol {
     ExclamationMark,
-    Suffix(Suffix),
-    Prefix(Prefix),
     QuestionMark,
+    Apostrophe,
     Whitespace,
-    Word(Word),
     Period,
     Comma,
+}
+
+#[derive(Debug, Clone)]
+pub enum Token {
+    Symbol(Symbol),
+    Suffix(Suffix),
+    Prefix(Prefix),
+    None(String),
+    Word(Word),
+}
+
+#[derive(Debug, Clone)]
+pub enum IntermediateToken {
+    Symbol(Symbol),
+    Text(String),
 }

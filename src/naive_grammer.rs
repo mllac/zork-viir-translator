@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Word {
     Zorp,
     Zork,
@@ -144,19 +144,19 @@ pub enum Word {
     Woo,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Modifier {
     Orp,
     Orz,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Prefix {
     Rg,
     Rb,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Suffix {
     Omp,
     Iop,

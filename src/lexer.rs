@@ -1,4 +1,7 @@
-use crate::{naive_grammer::{Prefix, Suffix, Word}, token::Token};
+use crate::{
+    naive_grammer::{Prefix, Suffix, Word},
+    token::{IntermediateToken, Symbol, Token},
+};
 
 pub struct Lexer<'a> {
     input: &'a [u8],
@@ -20,33 +23,38 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn into_tokens(&mut self) -> Vec<Token> {
+    pub fn into_intermediate_tokens(&mut self) -> Vec<IntermediateToken> {
         let mut tokens = Vec::new();
 
         while let Some(char) = self.peek() {
             let char = match char {
                 b' ' => {
-                    tokens.push(Token::Whitespace);
+                    tokens.push(IntermediateToken::Symbol(Symbol::Whitespace));
                     self.advance();
                     continue;
                 }
                 b'.' => {
-                    tokens.push(Token::Period);
+                    tokens.push(IntermediateToken::Symbol(Symbol::Period));
                     self.advance();
                     continue;
                 }
                 b',' => {
-                    tokens.push(Token::Comma);
+                    tokens.push(IntermediateToken::Symbol(Symbol::Comma));
                     self.advance();
                     continue;
                 }
                 b'!' => {
-                    tokens.push(Token::ExclamationMark);
+                    tokens.push(IntermediateToken::Symbol(Symbol::ExclamationMark));
                     self.advance();
                     continue;
                 }
                 b'?' => {
-                    tokens.push(Token::QuestionMark);
+                    tokens.push(IntermediateToken::Symbol(Symbol::QuestionMark));
+                    self.advance();
+                    continue;
+                }
+                b'\'' => {
+                    tokens.push(IntermediateToken::Symbol(Symbol::Apostrophe));
                     self.advance();
                     continue;
                 }
@@ -59,6 +67,7 @@ impl<'a> Lexer<'a> {
 
             while let Some(char) = self.peek() {
                 match char {
+                    b'\'' => break,
                     b' ' => break,
                     b'.' => break,
                     b',' => break,
@@ -73,24 +82,100 @@ impl<'a> Lexer<'a> {
             }
 
             let text = String::from_utf8_lossy(&text);
-
-            match text.parse::<Prefix>() {
-                Ok(x) => {
-                    tokens.push(Token::Prefix(x));
-                    continue;
-                }
-                Err(_) => {
-                    if let Ok(x) = text.parse::<Suffix>() {
-                        tokens.push(Token::Suffix(x));
-                        continue;
-                    } else if let Ok(x) = text.parse::<Word>() {
-                        tokens.push(Token::Word(x));
-                    }
-                }
-            }
+            tokens.push(IntermediateToken::Text(text.to_string()));
         }
 
         tokens
     }
-}
 
+    pub fn into_final_tokens(tokens: Vec<IntermediateToken>) -> Vec<Token> {
+        let mut new_tokens = Vec::new();
+
+        fn check_prefix(x: &str) -> Option<Prefix> {
+            x.parse::<Prefix>().map_or(None, Some)
+        }
+
+        fn check_suffix(x: &str) -> Option<Suffix> {
+            x.parse::<Suffix>().map_or(None, Some)
+        }
+
+        fn check_word(x: &str) -> Option<Word> {
+            x.parse::<Word>().map_or(None, Some)
+        }
+
+        for (i, token) in tokens.iter().enumerate() {
+            let text = if let IntermediateToken::Text(txt) = token {
+                txt
+            } else if let IntermediateToken::Symbol(s) = token {
+                match s {
+                    Symbol::Apostrophe => {
+                        if let Some(x) = tokens.get(i - 1) {
+                            if let IntermediateToken::Text(x) = x {
+                                if let Ok(x) = x.parse::<Word>() {
+                                    match x {
+                                        Word::Fop => continue,
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        }
+
+                        new_tokens.push(Token::Symbol(Symbol::Apostrophe));
+                    }
+                    s => new_tokens.push(Token::Symbol(s.clone())),
+                };
+
+                continue;
+            } else {
+                continue;
+            };
+
+            let word = match (check_prefix(&text), check_suffix(&text), check_word(&text)) {
+                (None, None, None) => {
+                    new_tokens.push(Token::None(text.to_string()));
+                    continue;
+                }
+                (Some(x), None, Some(z)) => {
+                    new_tokens.push(Token::Prefix(x));
+                    new_tokens.push(Token::Word(z));
+                    continue;
+                }
+                (None, Some(x), Some(y)) => {
+                    new_tokens.push(Token::Word(y));
+                    new_tokens.push(Token::Suffix(x));
+                    continue;
+                }
+                (Some(x), None, None) => {
+                    new_tokens.push(Token::Prefix(x));
+                    continue;
+                }
+                (None, Some(x), None) => {
+                    new_tokens.push(Token::Suffix(x));
+                    continue;
+                }
+                (None, None, Some(x)) => x,
+                _ => continue,
+            };
+
+            match word {
+                Word::Ror => {
+                    if let Some(x) = tokens.get(i + 1) {
+                        match x {
+                            IntermediateToken::Symbol(Symbol::QuestionMark) => {
+                                new_tokens.push(Token::Word(Word::Zorp));
+                            }
+                            _ => {
+                                new_tokens.push(Token::Word(Word::Ror));
+                            }
+                        }
+                    } else {
+                        new_tokens.push(Token::Word(Word::Ror));
+                    }
+                }
+                _ => new_tokens.push(Token::Word(word)),
+            }
+        }
+
+        new_tokens
+    }
+}

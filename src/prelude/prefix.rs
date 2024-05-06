@@ -16,3 +16,13 @@ impl FromStr for Prefix {
     }
 }
 
+impl TryInto<String> for Prefix {
+    type Error = ();
+
+    fn try_into(self) -> Result<String, Self::Error> {
+        match self {
+            Self::Rg => Ok("rg".into()),
+            Self::Rb => Ok("rb".into()),
+        }
+    }
+}
